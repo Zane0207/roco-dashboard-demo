@@ -93,7 +93,8 @@ footer{color:var(--dim);font-size:10px;text-align:center;margin-top:14px;border-
   <div class="controls">
     <button id="btn-start" class="primary" type="button">启动采集</button>
     <button id="btn-stop" type="button">停止采集</button>
-    <button id="btn-replay" class="accent" type="button">▶ 回放 pcap</button>
+    <button id="btn-replay" class="accent" type="button">▶ 回放 pcap（连续）</button>
+    <button id="btn-mode" type="button">模式：连续流 · 1315 帧</button>
     <button id="btn-export" type="button">导出报告 (JSONL)</button>
     <span class="state">采集 <b id="cap-state">—</b> ｜ 缓冲 <b id="cap-buffer">0</b></span>
   </div>
@@ -138,9 +139,9 @@ const $ = id => document.getElementById(id);
 
 const BATTLE = R.battle;
 const EGG = R.egg;
-const EVENTS = R.events;
+let EVENTS = R.stream || R.events;
 
-let timer=null, idx=0, autoScroll=true, replayed=[], activeDev="", bagSeen=0;
+let timer=null, idx=0, autoScroll=true, replayed=[], activeDev="", bagSeen=0, mode="stream";
 let diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};
 
 function hhmmss(ts){return "+"+(ts/1000).toFixed(3).padStart(7," ")+"s";}
@@ -167,8 +168,12 @@ function renderDevs(){
   });
 }
 function applyFilter(){
+  if(!activeDev){
+    $("feed").querySelectorAll(".logrow").forEach(r=>{r.style.display="";});
+    return;
+  }
   $("feed").querySelectorAll(".logrow").forEach(r=>{
-    r.style.display=(!activeDev||r.dataset.dev===activeDev)?"":"none";
+    r.style.display=r.dataset.dev===activeDev?"":"none";
   });
 }
 function appendEvent(ev){
@@ -224,11 +229,13 @@ function renderOpcodes(){
   $("unknowns").innerHTML=unk.length?unk.map(([k,n])=>`<div class="barrow"><span>f${k}</span><div style="flex:1;background:#0e0b1c;border-radius:3px"><i style="width:${Math.min(100,n*40)}%"></i></div><b>${n}</b></div>`).join(""):'<div class="empty">暂无未知字段</div>';
 }
 function renderDiag(){
-  $("diag").innerHTML=`<div class="kv"><span>0x1002 <b>${idx>2?"已捕获":"等待中"}</b></span><span>decrypt_fail <b>${diag.decrypt}</b></span><span>link_lost <b>${diag.linklost}</b></span><span>filtered <b>${diag.filtered}</b></span></div>
+  const keyed=replayed.some(e=>e.state==="key_captured");
+  $("diag").innerHTML=`<div class="kv"><span>0x1002 <b>${keyed?"已捕获":"等待中"}</b></span><span>decrypt_fail <b>${diag.decrypt}</b></span><span>link_lost <b>${diag.linklost}</b></span><span>filtered <b>${diag.filtered}</b></span></div>
     <div class="kv" style="margin-top:5px"><span class="tag2 good">原始帧 / 密钥 / UID / IP 不进产物</span></div>`;
 }
 function renderStats(){
   const total=replayed.length;
+  const keyed=replayed.some(e=>e.state==="key_captured");
   const flows=new Set(replayed.map(e=>e.flow_id)).size;
   const biz=replayed.filter(e=>e.event_kind!=="state"&&e.event_kind!=="filtered").length;
   const decoded=replayed.filter(e=>e.fields&&Object.keys(e.fields).length).length;
@@ -236,8 +243,8 @@ function renderStats(){
   $("c-rates").textContent=`${replayed.filter(e=>e.dir==="C2S").length} C2S / ${replayed.filter(e=>e.dir==="S2C").length} S2C`;
   $("c-flows").textContent=flows;
   $("c-devs").textContent=`设备 ${new Set(replayed.map(e=>e.src)).size}`;
-  $("c-key").textContent=idx>2?"已捕获 0x1002":"等待中";
-  $("key-card").className=idx>2?"card keyok":"card keywait";
+  $("c-key").textContent=keyed?"已捕获 0x1002":"等待中";
+  $("key-card").className=keyed?"card keyok":"card keywait";
   $("c-decoded").textContent=biz?Math.round(decoded/biz*100)+"%":"—";
   const latency=total?12+(total*3)%37:0;
   $("c-latency").textContent=total?latency+"ms":"—";
@@ -282,7 +289,7 @@ function replay(){
   $("sse-dot").className="dot on";
   $("sse-text").textContent="回放中 · 离线事件流";
   setBanner("running","回放中 · 左侧为契约事件流，右侧为同步解读的战斗 / 背包 / 蛋 / 诊断信息。");
-  timer=setInterval(step,240);
+  timer=setInterval(step,mode==="stream"?18:240);
 }
 function reset(){
   if(timer){clearInterval(timer);timer=null;}
@@ -304,6 +311,15 @@ function reset(){
   $("unknowns").innerHTML='<div class="empty">暂无未知字段</div>';
   renderDevs();renderDiag();renderStats();
 }
+function updateModeLabel(){
+  $("btn-mode").textContent=mode==="stream"?`模式：连续流 · ${R.stream_count} 帧`:"模式：关键帧 · 14 帧";
+  $("btn-replay").textContent=mode==="stream"?"▶ 回放 pcap（连续）":"▶ 回放 pcap（关键帧）";
+}
+$("btn-mode").onclick=()=>{
+  mode=mode==="stream"?"key":"stream";
+  EVENTS=mode==="stream"?(R.stream||R.events):R.events;
+  updateModeLabel();reset();
+};
 $("btn-replay").onclick=replay;
 $("btn-start").onclick=()=>setBanner("waiting","演示环境未连接路由器采集端；生产版本在此启动 br-lan 抓包，当前请使用「回放 pcap」。");
 $("btn-stop").onclick=()=>{if(timer){clearInterval(timer);timer=null;$("btn-replay").disabled=false;$("cap-state").textContent="已停止";setBanner("waiting","采集已停止；可继续回放或导出已接收事件。");}};
@@ -316,6 +332,7 @@ $("btn-export").onclick=()=>{
   a.href=URL.createObjectURL(new Blob([text],{type:"application/x-ndjson"}));
   a.download="capture_replay.jsonl";a.click();URL.revokeObjectURL(a.href);
 };
+updateModeLabel();
 reset();
 </script>
 </body>

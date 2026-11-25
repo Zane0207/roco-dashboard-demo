@@ -195,6 +195,8 @@ def main() -> None:
         "battle": battle,
         "egg": egg,
         "events": scrub_events(chosen, names),
+        "stream": scrub_events(events, names),
+        "stream_count": len(events),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(
