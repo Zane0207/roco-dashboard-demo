@@ -17,6 +17,7 @@
 
 - Windows 侧：[Npcap](https://nmap.org/npcap/) / [WinPcap](https://www.winpcap.org/) 配合 [Wireshark](https://www.wireshark.org/)，需要内核驱动与管理员权限
 - 移动端：[Charles](https://www.charlesproxy.com/)、[HttpCanary](https://httpcanary.cn/) 依赖证书与系统 VPN；[PCAPdroid](https://github.com/GrenderG/PCAPdroid) 可免 root 抓包；root / 越狱后可使用 [tcpdump](https://www.tcpdump.org/)
+- 同场景项目：[ROCO-Nearby-Pet](https://github.com/Vicuna1277/ROCO-Nearby-Pet)（附近精灵查看）与 [roco-pve-viewer](https://github.com/Evenstar-tools/roco-pve-viewer)（PVE 战斗查看）也能读取游戏数据，但聚焦单机 / 单端展示，不具备跨设备统一采集
 
 ## 4. 方案局限
 
@@ -63,13 +64,13 @@
 
 - `README.md` — 模块说明（问题来源 / 目标与边界 / 行业常见方案 / 方案局限 / 技术路径 / 关键挑战与应对 / 结果与价值）
 - `PLAN.md` — 实施计划与验证清单
-- `index.html` — demo 入口，双击打开即可体验（单文件、内联 CSS/JS）
+- `live.html` — demo 入口，双击打开即可体验（pcap 回放 + 滚动事件流 + 右侧结构化解读）
 - `data.js` — 脱敏后的 Miffy 真实数据
 - `scripts/prepare_miffy_data.py` — 数据再生脚本
 
 ## 公共约定
 
-- 主源码：每个模块的 `index.html`（单文件、内联样式与脚本）
+- 主源码：每个模块的 HTML 入口（模块 A 为 `live.html`，单文件、内联样式与脚本）
 - 数据：模块目录下的 `data.js`（脱敏后的真实数据）
 - 生成脚本：`scripts/` 下与上级项目快照对接的工具
 
