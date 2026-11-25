@@ -169,6 +169,34 @@ def scrub_events(events: list[dict], names: dict[int, str]) -> list[dict]:
     return out
 
 
+SEGMENTS = [
+    ("抓包链路", 0, 30),
+    ("收蛋", 100, 115),
+    ("战斗进场", 790, 820),
+    ("战斗结束", 1060, 1072),
+]
+
+
+def build_stream(events: list[dict], names: dict[int, str]) -> tuple[list[dict], list[dict]]:
+    """拼接真实 pcap 的 4 个窗口：段内保留真实间隔，段间留 1s。"""
+    t0 = events[0].get("ts", 0)
+    out: list[dict] = []
+    meta: list[dict] = []
+    cursor_ms = 0
+    for label, lo, hi in SEGMENTS:
+        seg = [e for e in events if lo <= float(e.get("ts", t0)) - t0 <= hi]
+        if not seg:
+            continue
+        rows = scrub_events(seg, names)
+        for row in rows:
+            row["ts"] = cursor_ms + row["ts"]
+            row["seg"] = label
+        out.extend(rows)
+        meta.append({"label": label, "from_s": lo, "to_s": hi, "events": len(rows)})
+        cursor_ms += int(round((float(seg[-1].get("ts", t0)) - float(seg[0].get("ts", t0))) * 1000)) + 1000
+    return out, meta
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--events", required=True, type=Path)
@@ -186,17 +214,19 @@ def main() -> None:
 
     battle = next(scrub_m5(e["m5"], names) for e in chosen if isinstance(e.get("m5"), dict))
     egg = eggs[0] if eggs else {}
+    stream, segments = build_stream(events, names)
 
     payload = {
         "source": "real-pcap-derived",
-        "note": "事件来自本地真实 pcap 离线解析；时间戳已归一化，UID / 账号 / IP / 原始帧已移除",
+        "note": "事件来自本地真实 pcap 离线解析；连续流为 4 个真实窗口按原时间拼接，段内保留真实间隔，段间 1s",
         "stats": snapshot["stats"],
         "boxes": snapshot["boxes"],
         "battle": battle,
         "egg": egg,
         "events": scrub_events(chosen, names),
-        "stream": scrub_events(events, names),
-        "stream_count": len(events),
+        "stream": stream,
+        "stream_count": len(stream),
+        "segments": segments,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(

@@ -88,13 +88,13 @@ footer{color:var(--dim);font-size:10px;text-align:center;margin-top:14px;border-
     </div>
   </header>
 
-  <div id="banner" class="waiting"><span class="bd"></span><span id="banner-text">演示环境无实时抓包；点击「回放 pcap」载入从真实 pcap 离线解出的契约事件。</span></div>
+  <div id="banner" class="waiting"><span class="bd"></span><span id="banner-text">演示环境无实时抓包；点击「回放 pcap」按真实时间回放 4 段真实抓包：抓包 → 收蛋 → 战斗进场 → 战斗结束。</span></div>
 
   <div class="controls">
     <button id="btn-start" class="primary" type="button">启动采集</button>
     <button id="btn-stop" type="button">停止采集</button>
     <button id="btn-replay" class="accent" type="button">▶ 回放 pcap（连续）</button>
-    <button id="btn-mode" type="button">模式：连续流 · 1315 帧</button>
+    <button id="btn-mode" type="button">模式：连续流 · 真实时间</button>
     <button id="btn-export" type="button">导出报告 (JSONL)</button>
     <span class="state">采集 <b id="cap-state">—</b> ｜ 缓冲 <b id="cap-buffer">0</b></span>
   </div>
@@ -141,7 +141,7 @@ const BATTLE = R.battle;
 const EGG = R.egg;
 let EVENTS = R.stream || R.events;
 
-let timer=null, idx=0, autoScroll=true, replayed=[], activeDev="", bagSeen=0, mode="stream";
+let timer=null, idx=0, autoScroll=true, replayed=[], activeDev="", bagSeen=0, mode="stream", lastSeg="";
 let diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};
 
 function hhmmss(ts){return "+"+(ts/1000).toFixed(3).padStart(7," ")+"s";}
@@ -269,38 +269,45 @@ function consume(ev){
 function setBanner(cls,text){$("banner").className=cls;$("banner-text").textContent=text;}
 function step(){
   if(idx>=EVENTS.length){
-    clearInterval(timer);timer=null;
+    timer=null;
     $("btn-replay").disabled=false;
     $("cap-state").textContent="回放结束";
     $("sse-text").textContent="回放结束 · 可导出 JSONL";
     $("sse-dot").className="dot";
-    setBanner("done",`回放结束 · ${EVENTS.length} 条契约事件已解读，未加载任何原始帧或密钥。`);
+    setBanner("done",`回放结束 · ${EVENTS.length} 条真实事件（段内按原时间间隔），未加载任何原始帧或密钥。`);
     return;
   }
   const ev=EVENTS[idx++];
   replayed.push(ev);
   appendEvent(ev);consume(ev);
+  if(ev.seg && ev.seg!==lastSeg){
+    lastSeg=ev.seg;
+    setBanner("running",`回放中 · ${ev.seg} · 按真实时间推进，遇到抓包 / 收蛋 / 战斗帧即联动右侧面板。`);
+  }
+  const next=EVENTS[idx];
+  const delay=mode==="key"?240:(next?Math.max(0,next.ts-ev.ts):0);
+  timer=setTimeout(step,delay);
 }
 function replay(){
   if(timer)return;
-  if(idx>=EVENTS.length){idx=0;replayed=[];bagSeen=0;diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};$("feed").innerHTML="";}
+  if(idx>=EVENTS.length){idx=0;replayed=[];bagSeen=0;lastSeg="";diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};$("feed").innerHTML="";}
   $("btn-replay").disabled=true;
   $("cap-state").textContent="回放中";
   $("sse-dot").className="dot on";
-  $("sse-text").textContent="回放中 · 离线事件流";
+  $("sse-text").textContent=mode==="stream"?"回放中 · 真实时间":"回放中 · 关键帧";
   setBanner("running","回放中 · 左侧为契约事件流，右侧为同步解读的战斗 / 背包 / 蛋 / 诊断信息。");
-  timer=setInterval(step,mode==="stream"?18:240);
+  timer=setTimeout(step,0);
 }
 function reset(){
-  if(timer){clearInterval(timer);timer=null;}
-  idx=0;replayed=[];bagSeen=0;activeDev="";autoScroll=true;
+  if(timer){clearTimeout(timer);timer=null;}
+  idx=0;replayed=[];bagSeen=0;activeDev="";autoScroll=true;lastSeg="";
   diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};
   $("feed").innerHTML='<div class="empty">等待契约事件（点击任意行展开全部字段）…</div>';
   $("btn-replay").disabled=false;
   $("cap-state").textContent="—";
   $("sse-dot").className="dot";
   $("sse-text").textContent="演示模式 · 未连接采集端";
-  setBanner("waiting","演示环境无实时抓包；点击「回放 pcap」载入从真实 pcap 离线解出的契约事件。");
+  setBanner("waiting","演示环境无实时抓包；点击「回放 pcap」按真实时间回放 4 段真实抓包：抓包 → 收蛋 → 战斗进场 → 战斗结束。");
   $("m5-card").innerHTML='<div class="empty">等待 4886 进场帧（数值来自解密帧，名字用本地表还原）…</div>';
   $("m5-state").textContent="等待进场帧";
   $("bag-list").innerHTML='<div class="empty">等待游戏重连后的 profile(game_id)…</div>';
@@ -312,7 +319,7 @@ function reset(){
   renderDevs();renderDiag();renderStats();
 }
 function updateModeLabel(){
-  $("btn-mode").textContent=mode==="stream"?`模式：连续流 · ${R.stream_count} 帧`:"模式：关键帧 · 14 帧";
+  $("btn-mode").textContent=mode==="stream"?`模式：连续流 · 真实时间 ${Math.round(R.stream[R.stream.length-1].ts/1000)}s`:"模式：关键帧 · 14 帧";
   $("btn-replay").textContent=mode==="stream"?"▶ 回放 pcap（连续）":"▶ 回放 pcap（关键帧）";
 }
 $("btn-mode").onclick=()=>{
@@ -322,7 +329,7 @@ $("btn-mode").onclick=()=>{
 };
 $("btn-replay").onclick=replay;
 $("btn-start").onclick=()=>setBanner("waiting","演示环境未连接路由器采集端；生产版本在此启动 br-lan 抓包，当前请使用「回放 pcap」。");
-$("btn-stop").onclick=()=>{if(timer){clearInterval(timer);timer=null;$("btn-replay").disabled=false;$("cap-state").textContent="已停止";setBanner("waiting","采集已停止；可继续回放或导出已接收事件。");}};
+$("btn-stop").onclick=()=>{if(timer){clearTimeout(timer);timer=null;$("btn-replay").disabled=false;$("cap-state").textContent="已停止";setBanner("waiting","采集已停止；可继续回放或导出已接收事件。");}};
 $("btn-clear").onclick=reset;
 $("btn-pause").onclick=()=>{autoScroll=!autoScroll;$("btn-pause").textContent=autoScroll?"暂停滚动":"继续滚动";};
 $("btn-export").onclick=()=>{
