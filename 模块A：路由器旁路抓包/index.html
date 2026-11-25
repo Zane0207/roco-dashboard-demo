@@ -135,12 +135,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="card">
       <h3>痛点（来自真实数据）</h3>
       <p>26 个盒子 / 593 只精灵，其中 187 只异色、84 只炫彩。玩家想看「我有哪些异色」「哪个盒子快满了」，只能一页页翻游戏界面，再手抄到表格。</p>
-      <div class="kicker">产品判断：这不是「提高记录效率」，而是「把不可见的数据变成可查询的资产」。</div>
+      <div class="kicker">关键判断：这不是「提高记录效率」，而是「把不可见的数据变成可查询的资产」。</div>
     </div>
     <div class="card">
       <h3>idea 与边界</h3>
-      <p>路由器是玩家设备的网络必经点。在 <code>br-lan</code> 上用 BPF 只抓 <code>tcp port 8195 &amp; host &lt;游戏PC_IP&gt;</code>，解密后只取背包派生字段，输出 boxes JSON；原始帧、明文帧、会话密钥一律不进产物。</p>
-      <div class="kicker">产品经理的红线意识：旁路只读 → 合规；默认不同步 → 用户可控；字段白名单 → 隐私最小化。</div>
+      <p>路由器是玩家设备的网络必经点。在 <code>br-lan</code> 上用 BPF 只抓 <code>tcp port 8195 &amp; host &lt;游戏设备IP&gt;</code>，解密后只取背包派生字段，输出 boxes JSON；原始帧、明文帧、会话密钥一律不进产物。</p>
+      <div class="kicker">红线意识：旁路只读 → 合规；默认不同步 → 用户可控；字段白名单 → 隐私最小化。</div>
     </div>
   </div>
 
