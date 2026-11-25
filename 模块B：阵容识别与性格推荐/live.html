@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROCO 阵容识别 · 性格推荐 · 图鉴回链</title>
+<style>
+:root{
+  --bg:#0b0914;--bg2:#12101f;--panel:#171429;--panel2:#211c3a;--line:#322a52;
+  --acc:#8b6cff;--acc2:#ff7eb6;--ink:#f2efff;--sub:#a9a1c9;--dim:#6f6791;
+  --ok:#5ce6a8;--warn:#ffc46b;--err:#ff7b93;--hit:#8fd7ff;--shiny:#ffd76e;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px;line-height:1.55}
+.wrap{max-width:1560px;margin:0 auto;padding:18px 22px 40px}
+.mono{font-family:Consolas,"Courier New",monospace}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;letter-spacing:.4px}
+.sub{color:var(--dim);font-size:12px;margin-top:2px}
+.hdr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);display:inline-block;flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#banner{margin:12px 0;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:12px;display:flex;align-items:center;gap:9px;background:var(--panel)}
+#banner.waiting{border-color:#5b4a2e;color:var(--warn)}
+#banner.running{border-color:#2f6b55;color:var(--ok)}
+#banner.done{border-color:#4b3f75;color:var(--sub)}
+.bd{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+button{font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--sub);border-radius:7px;padding:7px 12px}
+button:hover{border-color:var(--acc);color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:linear-gradient(120deg,#3b3260,#2a2447);color:var(--ink)}
+button.accent{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#fff;border-color:transparent}
+button.sample.on{border-color:var(--acc2);color:var(--ink);background:rgba(255,126,182,.12)}
+.state{color:var(--dim);font-size:11px;margin-left:auto}
+.state b{color:var(--sub)}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.card .k{color:var(--dim);font-size:11px}
+.card .v{font-size:20px;font-weight:800;margin:2px 0;color:var(--ink)}
+.card .h{color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.hit .v{color:var(--ok)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.panel h2{font-size:12px;font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;color:var(--ink)}
+.panel h2.subhead{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.m5-sub{font-size:10px;color:var(--dim);font-weight:400}
+.tools{display:flex;gap:6px}
+.tools button{padding:3px 8px;font-size:10px}
+.body{padding:10px 12px}
+.empty{color:var(--dim);font-size:11px;font-style:italic}
+.pipe{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;padding:10px 12px 0}
+.step{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 9px;cursor:pointer;min-height:92px;position:relative;transition:border-color .2s,background .2s}
+.step:hover{border-color:var(--acc)}
+.step.on{border-color:var(--acc2);background:linear-gradient(160deg,rgba(139,108,255,.16),rgba(255,126,182,.08))}
+.step.done .n{color:var(--ok)}
+.step .n{font-size:9px;color:var(--dim);letter-spacing:1px}
+.step .ic{font-size:16px;line-height:1.2;margin:2px 0}
+.step .t{font-size:11px;font-weight:700;color:var(--ink)}
+.step .d{font-size:10px;color:var(--dim);margin-top:2px;line-height:1.35}
+.pipe-detail{margin:9px 12px 11px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:11px;color:var(--sub);background:var(--bg2)}
+.pipe-detail b{color:var(--ink)}
+.pipe-detail .warn{color:var(--warn)}
+.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(400px,.8fr);gap:10px;align-items:start}
+.board-wrap{padding:10px 12px 4px}
+.board{position:relative;width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:
+  linear-gradient(rgba(139,108,255,.06) 1px,transparent 1px) 0 0/40px 40px,
+  linear-gradient(90deg,rgba(139,108,255,.06) 1px,transparent 1px) 0 0/40px 40px,#0a0813}
+.board-grid{position:absolute;inset:0;display:grid;gap:8px;padding:12px}
+.slot{border:1px dashed var(--line);border-radius:7px;padding:7px;background:rgba(23,20,41,.72);overflow:hidden;cursor:pointer;position:relative}
+.slot.on{border-color:var(--acc2);background:rgba(139,108,255,.13)}
+.slot .ix{position:absolute;right:6px;top:5px;font-size:9px;color:var(--dim)}
+.slot .nm{font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .nm.locked{color:var(--dim);font-weight:400}
+.slot .raw{font-size:10px;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .na{font-size:10px;color:var(--hit);margin-top:3px}
+.slot .sk{font-size:9px;color:var(--dim);margin-top:3px;line-height:1.35;max-height:2.7em;overflow:hidden}
+.slot .bg{position:absolute;left:6px;bottom:5px;display:flex;gap:3px}
+.tag2{font-size:9px;border-radius:4px;background:var(--panel2);color:var(--sub);padding:1px 5px;white-space:nowrap}
+.tag2.good{background:rgba(92,230,168,.14);color:var(--ok)}
+.tag2.warn{background:rgba(255,196,107,.14);color:var(--warn)}
+.tag2.hit{background:rgba(143,215,255,.14);color:var(--hit)}
+.dets{position:absolute;inset:0;pointer-events:none}
+.det{position:absolute;border:1px solid rgba(143,215,255,.4);background:rgba(143,215,255,.05);font-size:8px;color:rgba(191,226,255,.75);padding:1px 2px;white-space:nowrap;overflow:hidden;opacity:.5}
+.det.hit{border-color:var(--acc2);background:rgba(255,126,182,.13);color:#fff;opacity:1;box-shadow:0 0 8px rgba(255,126,182,.45);z-index:3}
+.board-note{font-size:10px;color:var(--dim);padding:4px 12px 9px}
+.feed{height:250px;overflow:auto;padding:6px 8px;background:#090713}
+.logrow{padding:4px 6px;border-radius:5px;font-family:Consolas,"Courier New",monospace;font-size:11px;color:var(--sub);cursor:pointer;border-bottom:1px solid #1c1830}
+.logrow:hover{background:rgba(139,108,255,.09)}
+.logrow.ok{color:var(--ok)}.logrow.warn{color:var(--warn)}
+.logrow .ts{color:var(--dim)}.logrow .stage{color:var(--acc2);font-weight:700}
+.logrow .raw{display:none;white-space:pre-wrap;word-break:break-all;color:#cabfff;background:#0e0b1c;border-radius:5px;padding:7px;margin-top:5px;font-size:10px}
+.logrow.open .raw{display:block}
+.kv{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--sub)}
+.kv b{color:var(--ink)}
+.sec{border-top:1px solid var(--line);margin-top:9px;padding-top:8px}
+.sec:first-child{border-top:0;margin-top:0;padding-top:0}
+.sec .lab{font-size:10px;color:var(--dim);letter-spacing:.5px;margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:10px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 6px;color:var(--sub)}
+.chip.no{border-color:rgba(255,196,107,.5);color:var(--warn)}
+.rec-row{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 7px;margin-top:4px;font-size:11px}
+.rec-row.match{border-color:rgba(92,230,168,.45);background:rgba(92,230,168,.07)}
+.rec-row .lv{margin-left:auto;color:var(--dim);font-size:10px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--dim);font-weight:600;font-size:10px}
+tr{cursor:pointer}
+tr:hover td{background:rgba(139,108,255,.08)}
+tr.on td{background:rgba(255,126,182,.1)}
+td.nm{font-weight:700;color:var(--ink)}
+.notes li{font-size:11px;color:var(--sub);margin-left:16px;margin-bottom:5px}
+.modal{position:fixed;inset:0;background:rgba(5,4,10,.72);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:560px;width:100%;padding:18px 20px}
+.modal h3{font-size:15px;margin-bottom:10px}
+.modal li{font-size:12px;color:var(--sub);margin:6px 0 6px 18px}
+.modal .okline{color:var(--ok);font-size:11px;margin-top:10px}
+footer{color:var(--dim);font-size:10px;text-align:center;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(3,1fr)}.pipe{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.cards{grid-template-columns:repeat(2,1fr)}.pipe{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>ROCO 阵容识别 · 性格推荐 · 图鉴回链</h1><div class="sub">一图流截图 → OCR 检测 → 名字归一 → 性格反查 → 推荐比对 → 图鉴字段 · 离线单文件演示</div></div>
+    <div class="hdr-row">
+      <span class="pill"><span class="dot on"></span>真实 OCR dets · selftest 结论</span>
+      <span class="pill mono">pool = _pets.json 基础名</span>
+      <span class="pill mono">性格表 30 条</span>
+    </div>
+  </header>
+
+  <div id="banner" class="waiting"><span class="bd"></span><span id="banner-text">选择一份真实 OCR 缓存样例，点击「开始识别」逐步观察一图流如何变成结构化阵容。</span></div>
+
+  <div class="controls">
+    <button id="sample-team-3col" class="sample on" type="button" data-sample="team-3col">样例 A · 2 行 3 列</button>
+    <button id="sample-team-wolf" class="sample" type="button" data-sample="team-wolf">样例 B · 3 行 2 列 + 水印</button>
+    <button id="btn-run" class="accent" type="button">▶ 开始识别</button>
+    <button id="btn-reset" type="button">重置</button>
+    <button id="btn-export" type="button">导出结果 (JSON)</button>
+    <button id="btn-privacy" type="button">脱敏检查</button>
+    <span class="state">阶段 <b id="stage-state">0 / 6</b> ｜ 样例 <b id="sample-state">—</b></span>
+  </div>
+
+  <div class="cards">
+    <div class="card" id="card-dets"><div class="k">OCR 文本框</div><div class="v" id="c-dets">0</div><div class="h">x1/y1/x2/y2/text/score</div></div>
+    <div class="card" id="card-cells"><div class="k">已定位格子</div><div class="v" id="c-cells">0</div><div class="h">按 cy 聚行 · Z 序</div></div>
+    <div class="card" id="card-nature"><div class="k">性格已反查</div><div class="v" id="c-nature">0</div><div class="h">直接识别 + 增益减益唯一反查</div></div>
+    <div class="card" id="card-rec"><div class="k">推荐命中</div><div class="v" id="c-rec">0 / 6</div><div class="h">gradRec 最终形态匹配</div></div>
+    <div class="card" id="card-codex"><div class="k">图鉴已回链</div><div class="v" id="c-codex">0</div><div class="h">name → pet_id / 蛋组 / 性别</div></div>
+  </div>
+
+  <section class="panel">
+    <h2><span>识别链路 · 点击节点查看「做了什么 / 为什么」</span><span class="m5-sub">阶段由「开始识别」推进，节点说明可随时点开</span></h2>
+    <div class="pipe" id="pipe"></div>
+    <div class="pipe-detail" id="pipe-detail">选择样例后点击「开始识别」，或直接点上方节点查看设计取舍。</div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2><span>检测框 / 阵容画布</span><span class="m5-sub" id="board-state">等待样例</span></h2>
+      <div class="board-wrap"><div class="board" id="board"></div></div>
+      <div class="board-note">底图为示意网格，<b>不加载原始截图</b>；彩色框按真实 OCR 缓存的 x1/y1/x2/y2 等比例绘制，点选中格后相关文本高亮。</div>
+      <h2 class="subhead"><span>识别事件流</span><span class="tools"><button id="btn-pause" type="button">暂停滚动</button><button id="btn-clear" type="button">清空日志</button></span></h2>
+      <div class="feed" id="feed"><div class="empty">等待识别（点击任意日志行展开证据 JSON）…</div></div>
+    </section>
+
+    <div class="side">
+      <section class="panel"><h2><span>选中格 · 完整证据链</span><span class="m5-sub" id="detail-state">#1</span></h2><div class="body" id="detail"><div class="empty">等待识别结果…</div></div></section>
+      <section class="panel"><h2><span>六格识别结论</span><span class="m5-sub">点击行切换选中格</span></h2><div class="body" id="matrix"><div class="empty">等待识别结果…</div></div></section>
+      <section class="panel"><h2>样例说明与真实度</h2><div class="body" id="notes"><div class="empty">等待样例…</div></div></section>
+    </div>
+  </div>
+  <footer>数据源：上级项目真实 OCR 缓存样本 / teamOcr selftest / 性格表 / gradRec 离线缓存 / _pets.json；交付物不含原图、明文帧、会话密钥、UID 或精确时间戳。</footer>
+</div>
+
+<div class="modal" id="privacy" style="display:none">
+  <div class="box">
+    <h3>脱敏检查清单</h3>
+    <ul>
+      <li>不加载 / 不上传原始一图流截图，页面只画示意网格与检测框坐标。</li>
+      <li>OCR 文本框只含 text 与 bbox / score，不含玩家昵称、UID、设备 IP。</li>
+      <li>推荐数据来自 gradRec 离线缓存，只保留性格 / 等级 / 资质，不含账号信息。</li>
+      <li>图鉴回链只保留 pet_id / 图鉴编号 / 蛋组 / 性别比例 / 赛季，不发起外部请求。</li>
+      <li>识别结论可整份导出 JSON，便于复核；文件里没有时间戳与原始帧。</li>
+    </ul>
+    <div class="okline">✓ 本 demo 为离线双文件（live.html + data.js），零外网请求、零安装。</div>
+    <p style="margin-top:12px"><button id="btn-close-privacy" type="button" class="primary">关闭</button></p>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+const D = window.TEAM_DEMO_DATA;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+const STAGES = [
+  {n:"01",ic:"🖼️",t:"检测框",d:"分块上传 → OCR 文本框",body:"<b>做了什么</b>：一图流长边压到 ≤2000px，按 55KB/块上传；OCR 只返回 <span class='warn'>x1/y1/x2/y2/text/score</span> 文本框。demo 直接用缓存 dets，不上传原图。<br><b>为什么</b>：原图大且含个人信息，只把 dets 送进链路，既省带宽又把数据边界钉在用户侧。"},
+  {n:"02",ic:"🧭",t:"锚点聚类",d:"cy 聚行 → 行内全取 → Z 序",body:"<b>做了什么</b>：按 cy 把 dets 聚成行，行内取全部命中；weak 与 lev 只补空位，最后按 (cy,cx) 恢复 6 格 Z 序。<br><b>为什么</b>：2 行 3 列旧逻辑每行只取前 2 个，魔力猫 / 罗隐必丢；3 行 2 列里水印伪行会把真名挤出。"},
+  {n:"03",ic:"🔬",t:"字段归属",d:"技能 / 性格 / 资质分框取",body:"<b>做了什么</b>：技能框从名字 cx 向右 300–440px 归属，半径固定 300px；增益 / 减益是两个独立文本框，个体资质单独取。<br><b>为什么</b>：卡片名字在左上，技能是纯右偏非对称排布；用对称窗口或按行距放大会跨行串列。"},
+  {n:"04",ic:"🏷️",t:"名字归一",d:"exact → fuzzy → shape → prefix",body:"<b>做了什么</b>：候选池取 _pets.json 基础名，按顺序做精确、模糊、形近、整框前缀匹配。<br><b>为什么</b>：水印会粘成「卡瓦重噜球狼王」，整名必失败；但整框开头命中且图鉴名 ≥3 字，前缀兜底可安全认出，同时不误伤完整真名。"},
+  {n:"05",ic:"🧬",t:"性格反查",d:"增益↑ / 减益↓ → 唯一性格",body:"<b>做了什么</b>：模板 A 直接读到性格名；模板 B 只读到增益 / 减益，用 30 条性格表唯一反查。<br><b>为什么</b>：两种一图流版式都要走同一条链路；性格表是唯一真源，箭头方向决定性格，不靠猜。"},
+  {n:"06",ic:"📚",t:"推荐 + 图鉴",d:"gradRec 比对 → pet_id 回链",body:"<b>做了什么</b>：按最终形态名（同编号别名）查 gradRec，命中就显示等级 / 资质；再用名字回链 _pets.json 取 pet_id、蛋组、性别比例、赛季。<br><b>为什么</b>：推荐真源在云端，demo 用离线缓存；<span class='warn'>识别值是事实、推荐是参考</span>，未命中不自动改写。"},
+];
+
+let sampleId = "team-3col", stage = -1, timer = null, selected = 0, autoScroll = true;
+let logCount = 0;
+
+function sample(){ return D.samples.find(s => s.id === sampleId); }
+function cell(){ return sample().cells[selected]; }
+function setBanner(cls,text){ $("banner").className = cls; $("banner-text").textContent = text; }
+function matchCount(s){ return s.cells.filter(c => c.recs.some(r => r.nature === c.nature)).length; }
+function natureRule(n){ return D.natures.find(r => r.nature === n) || {}; }
+
+function renderPipe(){
+  $("pipe").innerHTML = STAGES.map((s,i)=>`<div class="step ${i===stage?"on":""} ${i<stage?"done":""}" data-i="${i}">
+    <div class="n">STEP ${s.n}</div><div class="ic">${s.ic}</div><div class="t">${s.t}</div><div class="d">${s.d}</div></div>`).join("");
+  $("pipe").querySelectorAll(".step").forEach(el=>{ el.onclick = ()=>{
+    const i = Number(el.dataset.i);
+    $("pipe-detail").innerHTML = `<span style="color:var(--dim)">STEP ${STAGES[i].n}</span> · ${STAGES[i].body}`;
+  }; });
+}
+
+function renderBoard(){
+  const s = sample();
+  const cols = s.layout.includes("3 列") ? 3 : 2;
+  const rows = 6 / cols;
+  const b = $("board");
+  b.style.aspectRatio = s.board.w + " / " + s.board.h;
+  const c = cell();
+  const tokens = new Set([c.name,c.raw,c.nature,c.gain,c.loss].concat(c.evidence||[],(c.quals||[]),c.skills.map(x=>x.name)).filter(Boolean));
+  const dets = s.dets.map((d,i)=>{
+    const left = d.x1 / s.board.w * 100, top = d.y1 / s.board.h * 100;
+    const w = Math.max(1.2,(d.x2-d.x1) / s.board.w * 100), h = Math.max(1.2,(d.y2-d.y1) / s.board.h * 100);
+    return `<div class="det ${tokens.has(d.text)?"hit":""}" style="left:${left}%;top:${top}%;width:${w}%;height:${h}%" title="${esc(d.text)} · score ${d.score}">${esc(d.text)}</div>`;
+  }).join("");
+  const slots = s.cells.map((x,i)=>{
+    const shown = stage >= 1, fields = stage >= 2, matched = stage >= 3, rec = stage >= 5;
+    const recOk = x.recs.some(r => r.nature === x.nature);
+    return `<div class="slot ${i===selected?"on":""}" data-i="${i}">
+      <div class="ix">#${i+1}</div>
+      <div class="nm ${shown?"":"locked"}">${shown?esc(x.name):"等待锚点聚类"}</div>
+      <div class="raw">${shown?esc(x.raw):"—"}</div>
+      <div class="na">${fields?esc(x.nature)+(x.natureSource==="derived"?" ← "+esc(x.gain)+"↑ "+esc(x.loss)+"↓":""):""}</div>
+      <div class="sk">${fields?esc(x.skills.map(k=>k.name).join(" · ")):""}</div>
+      <div class="bg">${matched?`<span class="tag2 ${x.match==="prefix"?"warn":"good"}">${esc(x.match)}</span>`:""}
+        ${rec?`<span class="tag2 ${recOk?"good":"warn"}">${recOk?"推荐命中":"未命中"}</span>`:""}
+        ${rec?`<span class="tag2 hit">#${x.codex.pid}</span>`:""}</div>
+    </div>`;
+  }).join("");
+  b.innerHTML = `<div class="board-grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${slots}</div><div class="dets">${dets}</div>`;
+  b.querySelectorAll(".slot").forEach(el=>{ el.onclick = ()=>{ selected = Number(el.dataset.i); renderAll(); }; });
+  $("board-state").textContent = `${s.title} · ${s.layout} · ${s.dets.length} 个 dets`;
+}
+
+function renderDetail(){
+  if(stage < 0){ $("detail").innerHTML = '<div class="empty">等待识别结果…</div>'; return; }
+  const c = cell(), r = natureRule(c.nature);
+  const recOk = c.recs.some(x => x.nature === c.nature);
+  const recHtml = c.recs.length ? c.recs.map(x=>{
+    const ok = x.nature === c.nature;
+    return `<div class="rec-row ${ok?"match":""}"><b>${esc(x.nature)}</b><span class="tag2 ${x.level?"good":""}">${esc(x.level||"未标等级")}</span>
+      <span style="color:var(--dim)">${esc(x.qual||"资质未填")}</span><span class="lv">dex ${esc(x.dex)}</span></div>`;
+  }).join("") : '<div class="empty">该形态在离线推荐缓存中没有带性格的推荐行。</div>';
+  const codex = c.codex;
+  $("detail-state").textContent = "#" + (selected+1) + " · " + c.name;
+  $("detail").innerHTML = `
+    <div class="sec"><div class="lab">① OCR 原始证据</div>
+      <div class="kv"><span>图鉴名 <b>${esc(c.name)}</b></span><span>匹配 <b>${esc(c.match)}</b></span><span>在名字池 <b>${c.inNamePool?"是":"否"}</b></span></div>
+      <div style="margin-top:5px">整框原文：<span class="tag2 warn">${esc(c.raw)}</span></div>
+      <div class="chips" style="margin-top:5px">${(c.evidence||[]).map(e=>`<span class="chip">${esc(e)}</span>`).join("")}</div>
+    </div>
+    <div class="sec"><div class="lab">② 性格反查（${esc(c.natureSource==="direct"?"模板直接读出":"增益减益唯一反查")}）</div>
+      <div class="kv"><span>性格 <b>${esc(c.nature)}</b></span>
+        <span>表内增益 <b>${esc(r.gain||"—")}↑</b></span><span>表内减益 <b>${esc(r.loss||"—")}↓</b></span></div>
+      ${c.natureSource==="derived"?`<div style="color:var(--hit);font-size:11px;margin-top:4px">OCR：${esc(c.gain)}↑ / ${esc(c.loss)}↓ → ${esc(c.nature)}（30 条规则唯一命中）</div>`:""}
+      <div style="margin-top:5px">个体资质：<div class="chips">${(c.quals||[]).length?c.quals.map(q=>`<span class="chip">${esc(q)}</span>`).join(""):'<span class="chip">该模板未提供</span>'}</div></div>
+    </div>
+    <div class="sec"><div class="lab">③ 技能（按技能池标记）</div>
+      <div class="chips">${c.skills.map(k=>`<span class="chip ${k.inPool?"":"no"}" title="${k.inPool?"命中技能池":"未入池，正式输出会被过滤"}">${esc(k.name)}${k.inPool?"":" !"}</span>`).join("")}</div>
+    </div>
+    <div class="sec"><div class="lab">④ 推荐比对 · gradRec 离线缓存</div>${recHtml}
+      <div style="margin-top:5px;font-size:11px;color:${recOk?"var(--ok)":"var(--warn)"}">${recOk?"✓ 当前性格命中推荐行":"⚠ 当前性格不在推荐行内（保留 OCR 事实，不自动改写）"}${codex.alias?` · 推荐表别名 ${esc(codex.alias)}（同图鉴编号）`:""}</div>
+    </div>
+    <div class="sec"><div class="lab">⑤ 图鉴回链（本地字段，不发起请求）</div>
+      <div class="kv"><span>pet_id <b>${codex.pid}</b></span><span>图鉴编号 <b>${esc(codex.dex)}</b></span>
+        <span>蛋组 <b>${esc(codex.eggs.join(" / ")||"—")}</b></span><span>性别 <b>${esc(codex.gender)}</b></span>
+        <span>赛季 <b>S${codex.season}</b></span><span>异色 <b>${codex.shiny?"官方图标有":"无官方图"}</b></span></div>
+      <div class="mono" style="font-size:10px;color:var(--dim);margin-top:5px">${esc(codex.icon)}<br>${esc(codex.art)}</div>
+    </div>`;
+}
+
+function renderMatrix(){
+  if(stage < 1){ $("matrix").innerHTML = '<div class="empty">等待锚点聚类…</div>'; return; }
+  const s = sample();
+  $("matrix").innerHTML = `<table><thead><tr><th>#</th><th>识别名</th><th>原文 / 匹配</th><th>性格</th><th>推荐</th><th>图鉴</th></tr></thead><tbody>` +
+    s.cells.map((c,i)=>{
+      const recOk = c.recs.some(x => x.nature === c.nature);
+      return `<tr class="${i===selected?"on":""}" data-i="${i}"><td>${i+1}</td><td class="nm">${esc(c.name)}</td>
+        <td>${esc(c.raw)} <span class="tag2 ${c.match==="prefix"?"warn":""}">${esc(c.match)}</span></td>
+        <td>${stage>=2?esc(c.nature):"—"}</td>
+        <td>${stage>=5?`<span class="tag2 ${recOk?"good":"warn"}">${recOk?"命中":"未命中"}</span>`:"—"}</td>
+        <td>${stage>=5?"#"+c.codex.pid:"—"}</td></tr>`;
+    }).join("") + "</tbody></table>";
+  $("matrix").querySelectorAll("tr").forEach(el=>{ el.onclick = ()=>{ selected = Number(el.dataset.i); renderAll(); }; });
+}
+
+function renderNotes(){
+  const s = sample();
+  $("notes").innerHTML = `<div class="sec"><div class="lab">来源</div>
+      <div class="mono" style="font-size:10px;color:var(--sub)">${esc(s.source)}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:3px">OCR dets 真实缓存；识别结论取自 teamOcr selftest 断言；性格 / 推荐 / 图鉴为上级项目离线字段。</div></div>
+    <div class="sec"><div class="lab">这份样例的坑</div><ul class="notes">${s.notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ul></div>
+    <div class="sec"><div class="lab">真源</div><div class="kv"><span>名字池 <b>${D.meta.poolNames}</b></span><span>技能池 <b>${D.meta.poolSkills}</b></span><span>性格规则 <b>${D.meta.natureRules}</b></span><span>推荐缓存行 <b>${D.meta.gradRows}</b></span></div></div>`;
+}
+
+function renderStats(){
+  const s = sample();
+  const done = stage >= 5;
+  const vals = [
+    ["c-dets",stage>=0?s.dets.length:0,"card-dets"],
+    ["c-cells",stage>=1?s.cells.length:0,"card-cells"],
+    ["c-nature",stage>=2?s.cells.length:0,"card-nature"],
+    ["c-rec",done?matchCount(s)+" / "+s.cells.length:"0 / 6","card-rec"],
+    ["c-codex",done?s.cells.length:0,"card-codex"],
+  ];
+  vals.forEach(([id,v,card])=>{ $(id).textContent = v; $(card).className = "card" + (stage>=0?" hit":""); });
+  $("stage-state").textContent = (stage+1) + " / 6";
+  $("sample-state").textContent = s.title;
+}
+
+function appendLog(lines, evidence){
+  const feed = $("feed");
+  if(!logCount) feed.innerHTML = "";
+  lines.forEach(text=>{
+    logCount++;
+    const row = document.createElement("div");
+    row.className = "logrow " + (text.includes("⚠")?"warn":text.includes("✓")?"ok":"");
+    row.innerHTML = `<span class="ts">[S${String(stage+1).padStart(2,"0")}]</span> <span class="stage">${esc(STAGES[stage].t)}</span> ${esc(text)}
+      <pre class="raw">${esc(JSON.stringify(evidence,null,2))}</pre>`;
+    row.onclick = ()=>row.classList.toggle("open");
+    feed.appendChild(row);
+  });
+  if(autoScroll) feed.scrollTop = feed.scrollHeight;
+}
+
+function stageLog(){
+  const s = sample();
+  if(stage===0) return {lines:[`载入 ${s.source} · 文本框 ${s.dets.length} 个`,`长边压缩 ≤2000px · 55KB/块（demo 用缓存 dets，不上传原图）`],evidence:{source:s.source,board:s.board,count:s.dets.length,first:s.dets.slice(0,3)}};
+  if(stage===1) return {lines:[`cy 聚行 → ${s.layout} · 行内取全部命中 → ${s.cells.length} 格`,`Z 序：${s.cells.map(c=>c.name).join(" / ")}`],evidence:{layout:s.layout,order:s.cells.map(c=>({name:c.name,raw:c.raw,match:c.match}))}};
+  if(stage===2) return {lines:s.cells.map(c=>`${c.name} ← 性格 ${c.nature} · 技能 ${c.skills.length} · 资质 ${c.quals.length||"—"}`),evidence:s.cells.map(c=>({name:c.name,nature:c.nature,evidence:c.evidence,quals:c.quals,skills:c.skills.map(k=>k.name)}))};
+  if(stage===3) return {lines:s.cells.map(c=>`${c.raw} → ${c.name} · ${c.match}${c.match==="prefix"?"（整框开头 + 图鉴名≥3字）":""}`),evidence:s.cells.map(c=>({raw:c.raw,name:c.name,match:c.match,inNamePool:c.inNamePool}))};
+  if(stage===4) return {lines:s.cells.map(c=>c.natureSource==="direct"?`${c.name} 直接 OCR 性格 = ${c.nature}`:`${c.name} ${c.gain}↑ / ${c.loss}↓ → ${c.nature}`),evidence:s.cells.map(c=>({name:c.name,source:c.natureSource,gain:c.gain,loss:c.loss,nature:c.nature}))};
+  const lines=[];
+  s.cells.forEach(c=>{
+    const ok = c.recs.some(r=>r.nature===c.nature);
+    lines.push(`${c.name} → ${ok?"✓ 推荐命中 "+c.nature:"⚠ 推荐未命中（保留识别值）"} · 图鉴 #${c.codex.pid} / dex ${c.codex.dex}`);
+  });
+  return {lines,evidence:s.cells.map(c=>({name:c.name,nature:c.nature,recs:c.recs,pid:c.codex.pid,eggs:c.codex.eggs}))};
+}
+
+function renderAll(){
+  renderPipe();renderBoard();renderDetail();renderMatrix();renderNotes();renderStats();
+}
+
+function resetState(clearLog=true){
+  if(timer){ clearInterval(timer); timer=null; }
+  stage=-1; selected=0;
+  if(clearLog){ logCount=0; $("feed").innerHTML='<div class="empty">等待识别（点击任意日志行展开证据 JSON）…</div>'; }
+  $("btn-run").disabled=false;
+  $("pipe-detail").innerHTML="选择样例后点击「开始识别」，或直接点上方节点查看设计取舍。";
+  setBanner("waiting","选择一份真实 OCR 缓存样例，点击「开始识别」逐步观察一图流如何变成结构化阵容。");
+  renderAll();
+}
+
+function step(){
+  stage++;
+  if(stage>=6){
+    clearInterval(timer);timer=null;
+    $("btn-run").disabled=false;
+    const n = matchCount(sample());
+    setBanner("done",`识别完成 · ${sample().cells.length} 格 / 推荐命中 ${n} 格 / 图鉴回链 ${sample().cells.length} 格；全程未加载原始截图。`);
+    renderAll();return;
+  }
+  const l = stageLog();
+  appendLog(l.lines,l.evidence);
+  setBanner("running",`识别中 · ${STAGES[stage].n} ${STAGES[stage].t}：${STAGES[stage].d}`);
+  renderAll();
+}
+
+function start(){
+  if(timer)return;
+  resetState(true);
+  $("btn-run").disabled=true;
+  step();
+  timer=setInterval(step,820);
+}
+
+function switchSample(id){
+  if(timer){ clearInterval(timer);timer=null; }
+  sampleId=id;
+  document.querySelectorAll(".sample").forEach(b=>b.classList.toggle("on",b.dataset.sample===id));
+  resetState(true);
+}
+
+$("btn-run").onclick=start;
+$("btn-reset").onclick=()=>resetState(true);
+document.querySelectorAll(".sample").forEach(b=>{ b.onclick=()=>switchSample(b.dataset.sample); });
+$("btn-pause").onclick=()=>{ autoScroll=!autoScroll;$("btn-pause").textContent=autoScroll?"暂停滚动":"继续滚动"; };
+$("btn-clear").onclick=()=>{ logCount=0;$("feed").innerHTML='<div class="empty">日志已清空（识别进度保留）…</div>'; };
+$("btn-privacy").onclick=()=>{ $("privacy").style.display="flex"; };
+$("btn-close-privacy").onclick=()=>{ $("privacy").style.display="none"; };
+$("privacy").onclick=e=>{ if(e.target===$("privacy"))$("privacy").style.display="none"; };
+$("btn-export").onclick=()=>{
+  const s=sample();
+  const payload={meta:D.meta,sample:{id:s.id,title:s.title,layout:s.layout,source:s.source},dets:s.dets,cells:s.cells};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+  a.download="team_recognition_"+s.id+".json";a.click();URL.revokeObjectURL(a.href);
+};
+resetState(true);
+</script>
+</body>
+</html>

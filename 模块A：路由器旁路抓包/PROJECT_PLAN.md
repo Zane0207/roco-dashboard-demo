@@ -129,19 +129,42 @@
 ## 8. 数据方案与脱敏
 
 - 源：`上级项目/dashboard/assets/boxes_Miffy.json`
-- 脱敏：保留昵称 Miffy；去掉 UID `806702995`、源文件名、`generatedAt` / `sourceTs` / `importedAt` / `obtainedAt` 及坐标字段
+- 脱敏：保留昵称 Miffy；去掉 UID、源文件名、`generatedAt` / `sourceTs` / `importedAt` / `obtainedAt` 及坐标字段
 - 生成：`scripts/prepare_miffy_data.py` 输出 `data.js`（`window.DEMO_DATA`），可重跑
 - 约束：契约层不夹带 UID、玩家名、IP、时间戳；名字仅本地 catalog 还原
 
-## 9. Demo 实现说明
+## 9. Demo 实现说明与真实 pcap 数据源
 
 `live.html` 是路由器 live 监控页的离线版本：
 
 - **形态**：顶部状态与统计卡、设备筛选、左侧滚动事件流、右侧战斗 / 背包 / 蛋 / Opcode / 未知字段 / 连接诊断面板；不加载原始 pcap、明文帧或会话密钥
-- **演示数据源**：真实环境由路由器采集端提供契约事件；演示环境拿不到抓包，因此「回放 pcap」按钮把离线事件流喂进同一套界面
-- **事件样例**：按上级项目 `mixed_events.jsonl` / `m4_nearby_fields.jsonl` 的字段结构构造，时间戳为合成值；包含 `key_captured`、`flow_created`、`link_lost`、1044 过滤、258 / 338 / 4934 / 6273 / 6277 / 6289 / 4886 / 4908 / 579 等事件
+- **演示数据源**：真实环境由路由器采集端提供契约事件；演示环境拿不到抓包，因此「回放 pcap」载入从**本地真实 pcap 离线解出**的 14 条关键事件
+- **真实抓包规模**：该 pcap 共 10237 帧，解密成功 3869 帧；离线派生 43 盒 / 885 只 / 429 异色 / 101 炫彩 / 83 蛋
+- **脱敏**：时间戳改为相对毫秒，去掉 UID / 账号 / IP / 源文件名；m5 去掉 `enemy_side`（UID）与 `game_id`（实例号），宠物名用本地快照表还原
 - **交互**：设备筛选、点击行展开完整 JSON、暂停滚动、清空、导出 JSONL；「启动采集」在演示环境下提示未连接路由器
-- **右侧联动**：4886 推进战斗卡，4934 / PetBox 推进背包卡，338 + 579 推进收蛋卡，所有事件推进诊断与分布卡
+- **右侧联动**：4886 推进战斗卡，4934 + 快照推进背包卡，579 + 蛋背包容器扫描推进收蛋卡，所有事件推进诊断与分布卡
+
+### 再生 `replay_data.js`
+
+原始 pcap 只在本地，不入库；用上级项目解析器生成事件与快照，再由本仓库脚本脱敏裁剪：
+
+```powershell
+$ROOT = 'c:\Users\周子涵\CodeBuddy\Roco-dashboard-demo'
+$UP   = 'c:\Users\周子涵\CodeBuddy\Roco-dashboard\roco_capture\live'
+$PCAP = '<本机真实 pcap 绝对路径>'
+$IP   = '<游戏设备IP>'
+$PY   = 'C:\Users\周子涵\.workbuddy\binaries\python\versions\3.13.12\python.exe'
+$env:PYTHONIOENCODING = 'utf-8'
+
+cd $UP
+& $PY run.py --source sources/pcap.py:create_source --source-arg "file=$PCAP" --source-arg "game_pc_ip=$IP" --gap-timeout 10 --drop-opcodes 1044 --out "$env:TEMP\roco_real_events.jsonl"
+& $PY pcap_replay.py $PCAP --mode both --game-ip $IP --snapshot-dir "$env:TEMP\roco_real_snap" --settle 0.5
+
+$SNAP = (Get-ChildItem "$env:TEMP\roco_real_snap\*_boxes.json" | Select-Object -First 1).FullName
+& $PY "$ROOT\scripts\build_replay_from_pcap.py" --events "$env:TEMP\roco_real_events.jsonl" --snapshot $SNAP --out "$ROOT\模块A：路由器旁路抓包\replay_data.js"
+```
+
+若 `pcap_replay.py` 报尾部截断，先在 `$env:TEMP` 里复制一份裁掉末帧头的 pcap 再跑；裁切文件同样不入库。
 
 ## 10. 实施步骤与验证清单
 

@@ -88,7 +88,7 @@ footer{color:var(--dim);font-size:10px;text-align:center;margin-top:14px;border-
     </div>
   </header>
 
-  <div id="banner" class="waiting"><span class="bd"></span><span id="banner-text">演示环境无实时抓包；点击「回放 pcap」载入离线事件流，交互与真实 live 页一致。</span></div>
+  <div id="banner" class="waiting"><span class="bd"></span><span id="banner-text">演示环境无实时抓包；点击「回放 pcap」载入从真实 pcap 离线解出的契约事件。</span></div>
 
   <div class="controls">
     <button id="btn-start" class="primary" type="button">启动采集</button>
@@ -126,59 +126,33 @@ footer{color:var(--dim);font-size:10px;text-align:center;margin-top:14px;border-
       <section class="panel"><h2>连接诊断</h2><div class="body" id="diag"></div></section>
     </div>
   </div>
-  <footer>数据来自离线回放的契约事件（字段结构与上级项目 M1 内核一致）；页面不存储任何事件，原始帧 / 明文 / 0x1002 密钥不进产物。</footer>
+  <footer>事件来自本地真实 pcap 的离线解析（已归一化时间戳并移除 UID / 账号 / IP / 原始帧）；页面不存储任何事件，明文帧与 0x1002 密钥不进产物。</footer>
 </div>
 
-<script src="data.js"></script>
+<script src="replay_data.js"></script>
 <script>
-const D = window.DEMO_DATA;
+const R = window.REPLAY_DATA;
+const D = {stats: R.stats, boxes: R.boxes};
 const st = D.stats;
 const $ = id => document.getElementById(id);
 
-const BATTLE = {
-  battle_id: 8801, battle_mode: 5, enter_battle_type: 22, target_slot: 2,
-  units: [
-    {slot:1,pet_id:3007,name:"魔力猫",level:60,gender:"♀",mutation:0,blood_id:0,nature:"开朗",voice:92,bonus:[7,8,7,8,10,7],height_cm:88,weight_g:32500},
-    {slot:2,pet_id:3546,name:"圣剑-X",level:40,gender:"♂",mutation:1,blood_id:0,nature:"勇敢",voice:-46,bonus:[10,9,8,7,9,8],height_cm:126,weight_g:48700},
-    {slot:3,pet_id:3142,name:"小夜",level:35,gender:"♀",mutation:9,blood_id:19,nature:"偏执",voice:100,bonus:[8,8,9,8,10,7],height_cm:64,weight_g:18900}
-  ]
-};
-const EGG = {kind:"paired",egg_id:"EG-2401",item_id:107010,pet_id:3142,weight_g:18600,
-  obtained_ts:0,x:-442,y:1125,cfg:1001072,academy:true,dist:0,pair_dt:0.42};
-
-const EVENTS = [
-  {ts:1800000000,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:0,state:"key_captured",raw_len:0,confidence:"verified",event_kind:"state"},
-  {ts:1800000001,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:0,state:"flow_created",raw_len:0,confidence:"verified",event_kind:"state"},
-  {ts:1800000002,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:4098,raw_len:64,fields:{200:1,201:2},confidence:"verified",event_kind:"key"},
-  {ts:1800000003,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:258,raw_len:312,fields:{1:9001},confidence:"verified",event_kind:"profile"},
-  {ts:1800000004,flow_id:"f-02",src:"iPad",dir:"S2C",opcode:338,raw_len:188,fields:{4:1001072,7:1001072},confidence:"verified",event_kind:"scene"},
-  {ts:1800000005,flow_id:"f-03",src:"手机",dir:"S2C",opcode:1044,raw_len:12,fields:{},confidence:"verified",event_kind:"filtered"},
-  {ts:1800000006,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:4934,raw_len:18432,fields:{9:8,32:0,45:41,7:3,8:1,82:101},unknown:{112:"scalar"},unknown_count:1,confidence:"verified",event_kind:"bag"},
-  {ts:1800000007,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:6273,raw_len:512,fields:{3:1},confidence:"verified",event_kind:"bag"},
-  {ts:1800000008,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:6277,raw_len:768,fields:{2:1,3:1},confidence:"verified",event_kind:"bag"},
-  {ts:1800000009,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:6289,raw_len:640,fields:{2:1},confidence:"verified",event_kind:"bag"},
-  {ts:1800000010,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:4886,raw_len:9420,fields:{1:5,11:22},confidence:"verified",event_kind:"battle",m5:BATTLE},
-  {ts:1800000011,flow_id:"f-01",src:"游戏PC",dir:"C2S",opcode:4890,raw_len:220,fields:{1:8801},confidence:"verified",event_kind:"battle"},
-  {ts:1800000012,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:4900,raw_len:318,fields:{1:8801},confidence:"verified",event_kind:"battle"},
-  {ts:1800000013,flow_id:"f-02",src:"iPad",dir:"S2C",opcode:579,raw_len:276,fields:{},confidence:"verified",event_kind:"egg",egg:EGG},
-  {ts:1800000014,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:4908,raw_len:360,fields:{19:8801},confidence:"verified",event_kind:"battle"},
-  {ts:1800000015,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:0,state:"flow_closed",raw_len:0,confidence:"verified",event_kind:"state"},
-  {ts:1800000016,flow_id:"f-01",src:"游戏PC",dir:"S2C",opcode:0,state:"link_lost",raw_len:0,confidence:"verified",event_kind:"state"}
-];
+const BATTLE = R.battle;
+const EGG = R.egg;
+const EVENTS = R.events;
 
 let timer=null, idx=0, autoScroll=true, replayed=[], activeDev="", bagSeen=0;
 let diag={decrypt:0,linklost:0,filtered:0,opcodes:{},unknowns:{}};
 
-function hhmmss(ts){return new Date(ts*1000).toISOString().slice(11,23);}
+function hhmmss(ts){return "+"+(ts/1000).toFixed(3).padStart(7," ")+"s";}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function short(ev){
   if(ev.state) return "state="+ev.state;
-  if(ev.opcode===4886) return `m5 battle_id=${ev.m5.battle_id} units=${ev.m5.units.length}`;
-  if(ev.event_kind==="battle") return "battle frame";
-  if(ev.event_kind==="egg") return `egg ${ev.egg.kind} id=${ev.egg.egg_id} pet=${ev.egg.pet_id}`;
-  if(ev.opcode===258) return `profile game_id=${ev.fields["1"]}`;
-  if(ev.event_kind==="bag") return `raw_len=${ev.raw_len} fields=${Object.keys(ev.fields).length}`;
-  if(ev.event_kind==="filtered") return "no-information frame · filtered";
+  if(ev.opcode===4886) return `m5 battle_id=${BATTLE.battle_id} units=${BATTLE.units.length}`;
+  if([4890,4900,4908].includes(ev.opcode)) return "battle frame";
+  if(ev.opcode===579) return `egg reward · pet=${EGG.pet_name}`;
+  if(ev.opcode===258) return "profile / login";
+  if(ev.opcode===338) return "scene / nest";
+  if([4934,6273,6275,6277,6289].includes(ev.opcode)) return `raw_len=${ev.raw_len} fields=${Object.keys(ev.fields||{}).length}`;
   return `raw_len=${ev.raw_len}`;
 }
 function renderDevs(){
@@ -215,30 +189,33 @@ function appendEvent(ev){
 }
 function renderBattle(done){
   $("m5-state").textContent=done?"4908 已结束":"4886 已进场";
-  const mode={0:"无",1:"野生交互PVE",5:"普通PVE",6:"PK"}[BATTLE.battle_mode]||BATTLE.battle_mode;
-  const enter={1:"PVE",2:"野生PVE",11:"花种",12:"Boss",22:"PVP排位"}[BATTLE.enter_battle_type]||BATTLE.enter_battle_type;
-  $("m5-card").innerHTML=`<div class="kv"><span>battle_id <b>${BATTLE.battle_id}</b></span><span>mode <b>${mode}</b></span><span>enter <b>${enter}</b></span><span>target_slot <b>${BATTLE.target_slot}</b></span></div>`
+  const mode={0:"无",1:"野生交互PVE",2:"PVE",5:"普通PVE",6:"PK"}[BATTLE.mode];
+  const enter={0:"PVE / 通用",1:"PVE",2:"野生PVE",11:"花种",12:"Boss",22:"PVP排位"}[BATTLE.enter_type];
+  const val=v=>(v===null||v===undefined)?"—":v;
+  const sex=v=>v===1?"♂":v===2?"♀":val(v);
+  $("m5-card").innerHTML=`<div class="kv"><span>battle_id <b>${BATTLE.battle_id}</b></span><span>mode <b>${val(mode)}</b></span><span>enter <b>${val(enter)}</b></span><span>target_slot <b>${val(BATTLE.target_slot)}</b></span></div>`
     +BATTLE.units.map(u=>{
       const mut=(u.mutation&1?"异色 ":"")+(u.mutation&8?"炫彩 ":"")||"普通";
       const c=(u.mutation&1)?"sh":(u.mutation&8)?"co":"";
-      return `<div class="unit ${c}"><span class="nm">${u.name}</span> <span class="tag2">#${u.pet_id}</span>
-        <div class="meta">slot ${u.slot} · Lv.${u.level} · ${u.gender} · ${mut} · blood ${u.blood_id}</div>
-        <div class="meta">${u.nature} · voice ${u.voice}dB · 资质 ${u.bonus.join("/")} · ${u.height_cm}cm / ${u.weight_g}g</div></div>`;
+      const bonus=Array.isArray(u.bonus)?u.bonus.join("/"):"—";
+      return `<div class="unit ${c}"><span class="nm">${val(u.name)}</span> <span class="tag2">#${val(u.pet_id)}</span>
+        <div class="meta">slot ${val(u.slot)} · Lv.${val(u.level)} · ${sex(u.gender)} · ${mut} · blood ${val(u.blood_id)}</div>
+        <div class="meta">nature#${val(u.nature_id)} · voice ${val(u.voice)}dB · 资质 ${bonus} · ${val(u.height_cm)}cm / ${val(u.weight_g)}g</div></div>`;
     }).join("")
     +(done?`<div class="kv" style="margin-top:6px"><span class="tag2 good">4908 战斗结束 · 末帧回填敌方</span></div>`:"");
 }
 function renderBag(){
   $("bag-state").textContent=`${st.boxCount} 盒 / ${st.petCount} 只`;
-  $("bag-list").innerHTML=`<div class="kv"><span>盒子 <b>${st.boxCount}</b></span><span>精灵 <b>${st.petCount}</b></span><span>异色 <b>${st.shinyCount}</b></span><span>炫彩 <b>${st.colorfulCount}</b></span></div>`
+  $("bag-list").innerHTML=`<div class="kv"><span>盒子 <b>${st.boxCount}</b></span><span>精灵 <b>${st.petCount}</b></span><span>异色 <b>${st.shinyCount}</b></span><span>炫彩 <b>${st.colorfulCount}</b></span><span>蛋 <b>${st.eggCount||0}</b></span></div>`
     +D.boxes.slice(0,4).map(b=>`<div class="unit"><span class="nm">#${b.boxNumber}</span> <span class="tag2">${b.count}/30</span>
       <div class="meta">${b.pets.filter(p=>p.isShiny).length} 异色 · ${b.pets.filter(p=>p.isColorful).length} 炫彩 · ${b.pets.slice(0,3).map(p=>p.name).join(" / ")}</div></div>`).join("");
 }
 function renderEgg(){
-  $("egg-state").textContent="已配对 · 学院小窝";
-  $("egg-list").innerHTML=`<div class="unit"><span class="nm">${EGG.egg_id}</span> <span class="tag2 good">学院小窝 ✓</span>
-    <div class="meta">pet_id ${EGG.pet_id} · item ${EGG.item_id} · weight ${EGG.weight_g}g · cfg ${EGG.cfg}</div>
-    <div class="meta">坐标 (${EGG.x}, ${EGG.y}) · dist ${EGG.dist} · pair_dt ${EGG.pair_dt}s</div>
-    <div class="meta">门禁：579 需过蛋道具 + pet + 体重校验，避免通用奖励误报</div></div>`;
+  $("egg-state").textContent="579 奖励帧 · 蛋背包实读";
+  $("egg-list").innerHTML=`<div class="unit"><span class="nm">${EGG.pet_name}</span> <span class="tag2">蛋 #${EGG.egg_id}</span>
+    <div class="meta">pet_id ${EGG.pet_id} · item ${EGG.item_id} · weight ${EGG.weight_g}g · hatch ${EGG.hatch_seconds}s</div>
+    <div class="meta">异色 ${EGG.is_shiny?"是":"否"} · 炫彩 ${EGG.is_colorful?"是":"否"} · ${EGG.recognized?"已识别":"未识别"}</div>
+    <div class="meta">来源：真实 pcap 蛋背包容器扫描；UID / 获得时间 / 坐标已移除</div></div>`;
 }
 function renderOpcodes(){
   const arr=Object.entries(diag.opcodes).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -273,12 +250,13 @@ function consume(ev){
   if(ev.opcode)diag.opcodes[ev.opcode]=(diag.opcodes[ev.opcode]||0)+1;
   if(ev.state==="decrypt_fail")diag.decrypt++;
   if(ev.state==="link_lost")diag.linklost++;
-  if(ev.event_kind==="filtered")diag.filtered++;
+  if(ev.opcode===1044)diag.filtered++;
   if(ev.unknown_count)Object.entries(ev.unknown||{}).forEach(([k,n])=>{diag.unknowns[k]=(diag.unknowns[k]||0)+(typeof n==="number"?n:1);});
-  if(["4934","6273","6275","6277","6289"].includes(String(ev.opcode))){bagSeen++;if(bagSeen===1)renderBag();}
+  if([4934,6273,6275,6277,6289].includes(ev.opcode)){bagSeen++;if(bagSeen===1)renderBag();}
   if(ev.opcode===4886)renderBattle(false);
+  if([4890,4900].includes(ev.opcode))renderBattle(false);
   if(ev.opcode===4908)renderBattle(true);
-  if(ev.event_kind==="egg")renderEgg();
+  if(ev.opcode===579)renderEgg();
   renderDevs();renderOpcodes();renderDiag();renderStats();
 }
 function setBanner(cls,text){$("banner").className=cls;$("banner-text").textContent=text;}
@@ -315,7 +293,7 @@ function reset(){
   $("cap-state").textContent="—";
   $("sse-dot").className="dot";
   $("sse-text").textContent="演示模式 · 未连接采集端";
-  setBanner("waiting","演示环境无实时抓包；点击「回放 pcap」载入离线事件流，交互与真实 live 页一致。");
+  setBanner("waiting","演示环境无实时抓包；点击「回放 pcap」载入从真实 pcap 离线解出的契约事件。");
   $("m5-card").innerHTML='<div class="empty">等待 4886 进场帧（数值来自解密帧，名字用本地表还原）…</div>';
   $("m5-state").textContent="等待进场帧";
   $("bag-list").innerHTML='<div class="empty">等待游戏重连后的 profile(game_id)…</div>';
